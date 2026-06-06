@@ -18,6 +18,37 @@ ROOT = Path(__file__).resolve().parents[2]
 ASCEND = ROOT / "AscendXtri"
 RUN_GPX = ASCEND / "Ascend_run_official_2026-06.gpx"
 ASSIST_KM = 25.0
+BIKE_NO_SUPPORT_KM = 25.0
+
+# (km, kind, title, popup, priority: high|med|t2)
+BIKE_FEED_STOPS: list[tuple[float, str, str, str, str]] = [
+    (
+        25,
+        "feed",
+        "Km 25 · 1er ravito",
+        "Fin zone no-support (sortie Lourdes) · premier arrêt légal",
+        "high",
+    ),
+    (40, "feed", "Bas Balès", "Entrée cols sérieux · ravito avant montées", "med"),
+    (
+        80,
+        "feed",
+        "Bas Peyragudes",
+        "Spot clé · 21 km / +1 190 m à venir (~1h15)",
+        "high",
+    ),
+    (101, "feed", "Sommet Peyresourdes", "Fin du plus long bloc montée", "high"),
+    (
+        116,
+        "feed",
+        "Bas Azet",
+        "Avant montée Azet · ne pas s'arrêter en descente 101–116",
+        "med",
+    ),
+    (134, "feed", "Bas Aspin", "Avant montée Aspin (~45 min)", "med"),
+    (167, "feed", "Bas dernière montée", "Dernier gros ravito avant T2", "high"),
+    (184, "t2", "T2 Payolle", "Rack vélo · transition CAP", "t2"),
+]
 BIKE_GPX = ASCEND / "Ascend_xtri_bike.gpx"
 RUN_TERRAIN = ASCEND / "terrain_analysis.json"
 BIKE_TERRAIN = ASCEND / "bike_terrain_analysis.json"
@@ -34,7 +65,11 @@ BARRIER_CLOCK = 18 + 15 / 60
 NS = "{http://www.topografix.com/GPX/1/1}"
 
 DOCS = [
-    ("assistance.md", "Assistance support", "Km 0–25 véhicule · km 25+ crew à pied, parking La Mongie, horaires."),
+    (
+        "assistance.md",
+        "Assistance support",
+        "Ravitos vélo (cols) · CAP km 25+ crew · règles, horaires, carte.",
+    ),
     ("README.md", "Index parcours", "Vue d'ensemble vélo + CAP, scripts, chiffres clés."),
     ("run_course_analysis.md", "Analyse CAP", "4 actes, bosses, descentes genou, barrière km 33."),
     ("run_pace_model.md", "Modèle pacing run", "Vitesses race Icon / Alpsman / Bearman / Celtman."),
@@ -133,6 +168,11 @@ def add_assist_phase(track: list[dict], km_split: float = ASSIST_KM) -> None:
         p["assist"] = "vehicle" if p["km"] < km_split else "crew"
 
 
+def add_bike_zone(track: list[dict], no_support_km: float = BIKE_NO_SUPPORT_KM) -> None:
+    for p in track:
+        p["bike_zone"] = "nogo" if p["km"] < no_support_km else "feed"
+
+
 def nearest_at_km(track: list[dict], km: float) -> tuple[int, dict]:
     best_i, best_d = 0, 1e9
     for i, p in enumerate(track):
@@ -207,6 +247,51 @@ def render_assist_timeline(markers: list[dict]) -> str:
             f"<td>{phase}</td>"
             f"<td>{m['clock']}</td>"
             f"<td>{m['run_h']*60:.0f} min run</td>"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
+def build_bike_feed_meta(
+    bike_track: list[dict], bike_times: list[float], bike_start_h: float
+) -> dict:
+    markers: list[dict] = []
+    for km, kind, title, popup, priority in BIKE_FEED_STOPS:
+        i, p = nearest_at_km(bike_track, km)
+        t = bike_times[i]
+        markers.append(
+            {
+                "km": p["km"],
+                "lat": p["lat"],
+                "lon": p["lon"],
+                "ele": p["ele"],
+                "kind": kind,
+                "title": title,
+                "popup": popup,
+                "priority": priority,
+                "bike_h": round(t, 2),
+                "clock": fmt_clock(bike_start_h + t),
+            }
+        )
+    return {
+        "no_support_km": BIKE_NO_SUPPORT_KM,
+        "markers": markers,
+        "minimal_plan": "km 25 → 80 → 116 ou 134 → 167",
+    }
+
+
+def render_bike_feed_timeline(markers: list[dict]) -> str:
+    prio_label = {"high": "⭐ Clé", "med": "·", "t2": "T2"}
+    rows = []
+    for m in markers:
+        rows.append(
+            "<tr>"
+            f"<td>{prio_label.get(m['priority'], '·')}</td>"
+            f"<td>{m['title']}</td>"
+            f"<td>{m['km']:.1f}</td>"
+            f"<td>{m['clock']}</td>"
+            f"<td>{m['bike_h']*60:.0f} min vélo</td>"
+            f"<td style=\"color:var(--muted);font-size:12px\">{m['popup']}</td>"
             "</tr>"
         )
     return "\n".join(rows)
@@ -429,6 +514,8 @@ tr:hover{background:var(--panel2)}
 .assist-banner{border-radius:8px;padding:14px 18px;margin-bottom:12px;border-left:4px solid}
 .assist-banner.vehicle{background:#132238;border-color:#38bdf8}
 .assist-banner.crew{background:#2a1f14;border-color:#f97316}
+.assist-banner.bike{background:#1a2332;border-color:#a78bfa}
+.assist-banner.nogo{background:#1e2433;border-color:#64748b}
 .assist-banner h3{margin:0 0 6px;font-size:15px}
 .assist-banner p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
 .assist-pin{background:#0c1222;border:2px solid #fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px}
@@ -438,7 +525,7 @@ tr:hover{background:var(--panel2)}
 <body>
 <header>
   <h1>Ascend XTri — 25 juillet 2026</h1>
-  <div class="meta">Dashboard parcours · départ 03h00 · assistance véhicule km 0–25 · crew à pied km 25+ · barrière km 33 @ 18h15</div>
+  <div class="meta">Dashboard parcours · départ 03h00 · vélo : ravitos aux cols (no-support km 0–25) · CAP : crew à pied km 25+ · barrière km 33 @ 18h15</div>
   <div class="stats">
     <div class="stat"><div class="v">__BIKE_KM__ km</div><div class="l">Vélo · +__BIKE_GAIN__ m</div></div>
     <div class="stat"><div class="v">__RUN_KM__ km</div><div class="l">CAP · +__RUN_GAIN__ m</div></div>
@@ -498,6 +585,11 @@ tr:hover{background:var(--panel2)}
     <span><i style="background:#f97316"></i> km 25+ · crew à pied</span>
     <span>📍 marqueurs : départ · La Mongie · barrière · arrivée</span>
   </div>
+  <div class="legend" id="bike-feed-legend" style="display:none">
+    <span><i style="background:#64748b"></i> km 0–25 · no-support</span>
+    <span>🥤 ravitos recommandés (cols)</span>
+    <span>voiture toujours <strong>en avant</strong> du coureur</span>
+  </div>
   <div class="profile-wrap">
     <canvas id="profile"></canvas>
     <div id="tooltip"></div>
@@ -509,20 +601,40 @@ tr:hover{background:var(--panel2)}
 </section>
 
 <section class="tab" id="tab-support">
-  <div class="assist-banner vehicle">
-    <h3>🚗 Phase 1 — km 0 à 25 (véhicule seulement)</h3>
-    <p>Assistance <strong>ponctuelle en voiture</strong> le long du parcours. Le support ne court pas avec l'athlète. Naviguer sur la carte (onglet Carte) pour voir la zone bleue.</p>
+  <h2 style="margin:0 0 12px;font-size:18px;color:var(--accent)">🚴 Vélo — ravitaillement</h2>
+  <div class="two-col">
+    <div class="assist-banner nogo">
+      <h3>⛔ Km 0 → 25 — zone no-support</h3>
+      <p>Pas d'arrêt support (sortie Lourdes). Le site indiquait km 70 par erreur — confirmé ~25 km par XTRI.</p>
+    </div>
+    <div class="assist-banner bike">
+      <h3>🥤 Km 25 → 184 — ravitos voiture</h3>
+      <p>Voiture <strong>toujours en avant</strong> · garé hors route · leapfrog aux cols · <strong>pas en descente</strong> (surtout km 101–116).</p>
+    </div>
   </div>
-  <div class="assist-banner crew">
-    <h3>🏃 Phase 2 — km 25 à 42 (crew à pied obligatoire)</h3>
-    <p><strong>Parking La Mongie</strong> au km 25 — laisser le véhicule, prendre le sac, rejoindre Tom. Navette orga Tourmalet ↔ parking toute la journée. Zone orange sur la carte.</p>
+  <p style="color:var(--muted);font-size:13px;margin:8px 0 12px">Plan minimal (1 conducteur) : <strong>__BIKE_MINIMAL_PLAN__</strong> · départ vélo ~__BIKE_START_CLOCK__</p>
+  <div class="scrollable"><table>
+    <thead><tr><th></th><th>Point</th><th>Km</th><th>Horloge ~</th><th>Temps vélo</th><th>Notes</th></tr></thead>
+    <tbody>__BIKE_FEED_TIMELINE__</tbody>
+  </table></div>
+
+  <h2 style="margin:28px 0 12px;font-size:18px;color:var(--accent)">🏃 CAP — assistance</h2>
+  <div class="two-col">
+    <div class="assist-banner vehicle">
+      <h3>🚗 Km 0 → 25 — véhicule seulement</h3>
+      <p>Ravito <strong>ponctuel</strong> en bord de route — le support ne court pas avec Tom.</p>
+    </div>
+    <div class="assist-banner crew">
+      <h3>🏃 Km 25 → 42 — crew à pied obligatoire</h3>
+      <p><strong>Parking La Mongie</strong> · navette Tourmalet ↔ parking · sac assistance obligatoire.</p>
+    </div>
   </div>
-  <h3 style="color:var(--accent2)">Jalons horaires estimés (modèle Tom)</h3>
+  <h3 style="color:var(--accent2)">Jalons CAP (modèle Tom)</h3>
   <div class="scrollable"><table>
     <thead><tr><th>Point</th><th>Km</th><th>Mode</th><th>Horloge ~</th><th>Temps run</th></tr></thead>
     <tbody>__ASSIST_TIMELINE__</tbody>
   </table></div>
-  <p style="color:var(--muted);font-size:13px;margin-top:12px">Hypothèse T2 ~__T2_CLOCK__ · ajuster le jour J selon heure réelle au rack. Utiliser le <strong>slider</strong> sur l'onglet Carte pour voir position + mode assistance à chaque km.</p>
+  <p style="color:var(--muted);font-size:13px;margin-top:12px">T2 ~__T2_CLOCK__ · ajuster le jour J. Onglet <strong>Carte</strong> : basculer Vélo / CAP pour voir zones + marqueurs · <strong>slider</strong> pour horloge à chaque km.</p>
 </section>
 
 <section class="tab" id="tab-bike">
@@ -580,7 +692,8 @@ const GRADE_COLORS = {
   ">= +6 %": "#f87171"
 };
 const ASSIST_COLORS = { vehicle: "#38bdf8", crew: "#f97316" };
-const MARKER_ICON = { start: "🏁", handoff: "🅿️", barrier: "⏱️", finish: "🏔️" };
+const BIKE_ZONE_COLORS = { nogo: "#64748b", feed: "#4ade80" };
+const MARKER_ICON = { start: "🏁", handoff: "🅿️", barrier: "⏱️", finish: "🏔️", feed: "🥤", t2: "🔄" };
 
 let leg = "run";
 let map, layers = [];
@@ -607,6 +720,7 @@ function initTabs() {
       leg = btn.dataset.leg;
       document.getElementById("pos-slider").value = 0;
       document.getElementById("assist-legend").style.display = leg === "run" ? "flex" : "none";
+      document.getElementById("bike-feed-legend").style.display = leg === "bike" ? "flex" : "none";
       renderMap();
       drawProfile();
       updatePos(0);
@@ -643,6 +757,33 @@ function renderAssistZones(pts) {
   });
 }
 
+function renderBikeFeedZones(pts) {
+  let i = 0;
+  while (i < pts.length) {
+    const zone = pts[i].bike_zone;
+    if (!zone) { i++; continue; }
+    let j = i + 1;
+    while (j < pts.length && pts[j].bike_zone === zone) j++;
+    const seg = pts.slice(i, Math.min(j + 1, pts.length));
+    if (seg.length >= 2 && zone === "nogo") {
+      layers.push(L.polyline(seg.map(p => [p.lat, p.lon]), {
+        color: BIKE_ZONE_COLORS.nogo, weight: 12, opacity: 0.35, lineCap: "round"
+      }).addTo(map));
+    }
+    i = j;
+  }
+  (DATA.bike_feed?.markers || []).forEach(m => {
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="assist-pin">${MARKER_ICON[m.kind] || "🥤"}</div>`,
+      iconSize: [28, 28], iconAnchor: [14, 14]
+    });
+    const prio = m.priority === "high" ? " ⭐" : "";
+    const popup = `<strong>${m.title}</strong>${prio}<br>km ${m.km.toFixed(1)} · ${Math.round(m.ele)} m<br>${m.popup}<br><em>~${m.clock}</em>`;
+    layers.push(L.marker([m.lat, m.lon], { icon }).bindPopup(popup).addTo(map));
+  });
+}
+
 function renderMap() {
   const pts = track();
   if (!map) {
@@ -655,6 +796,7 @@ function renderMap() {
   layers = [];
   if (marker) { map.removeLayer(marker); marker = null; }
   if (leg === "run") renderAssistZones(pts);
+  if (leg === "bike") renderBikeFeedZones(pts);
   let chunk = [pts[0]];
   for (let i = 1; i < pts.length; i++) {
     if (pts[i].glbl !== pts[i-1].glbl) {
@@ -715,6 +857,22 @@ function drawProfile() {
       ctx.fillText(lbl, x(km) + 4, pad.t + 14);
     });
   }
+  if (leg === "bike") {
+    const ns = DATA.bike_feed?.no_support_km || 25;
+    if (ns <= maxKm) {
+      ctx.strokeStyle = "#64748b"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(x(ns), pad.t); ctx.lineTo(x(ns), h - pad.b); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#94a3b8"; ctx.font = "11px system-ui";
+      ctx.fillText("km 25 ravito", x(ns) + 4, pad.t + 14);
+    }
+    (DATA.bike_feed?.markers || []).filter(m => m.priority === "high").forEach(m => {
+      if (m.km > maxKm || m.km <= ns) return;
+      ctx.strokeStyle = "#a78bfa"; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(x(m.km), pad.t); ctx.lineTo(x(m.km), h - pad.b); ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
   canvas._pts = pts; canvas._x = x; canvas._y = y; canvas._pad = pad;
 }
 
@@ -734,6 +892,12 @@ function updatePos(idx) {
     const lbl = isVeh ? "🚗 Véhicule" : "🏃 Crew à pied";
     const col = ASSIST_COLORS[p.assist];
     assistHtml = `<div><div class="l">Assistance</div><div class="v" style="color:${col}">${lbl}</div></div>`;
+  }
+  if (leg === "bike" && p.bike_zone) {
+    const isNogo = p.bike_zone === "nogo";
+    const lbl = isNogo ? "⛔ No-support" : "🥤 Ravito OK";
+    const col = BIKE_ZONE_COLORS[isNogo ? "nogo" : "feed"];
+    assistHtml = `<div><div class="l">Support vélo</div><div class="v" style="color:${col}">${lbl}</div></div>`;
   }
   document.getElementById("pos-info").innerHTML =
     `<div><div class="l">Km</div><div class="v">${p.km.toFixed(1)}</div></div>` +
@@ -809,6 +973,7 @@ def build(out: Path = OUT_HTML) -> None:
     run_track = enrich_track(downsample(run_full, 1500), 100)
     add_assist_phase(run_track)
     bike_track = enrich_track(downsample(bike_full, 2500), 300)
+    add_bike_zone(bike_track)
 
     run_terrain = trim_terrain(json.loads(RUN_TERRAIN.read_text()))
     bike_terrain = trim_terrain(json.loads(BIKE_TERRAIN.read_text()))
@@ -828,10 +993,12 @@ def build(out: Path = OUT_HTML) -> None:
     km33_h = pace["ascend_km33_estimate"]["total_h"]
 
     swim_t1 = SWIM_H + T1_H
+    bike_start_h = swim_t1
     run_start_h = swim_t1 + bike_h + T2_H
     t2_clock_h = swim_t1 + bike_h
     finish_h = run_start_h + run_h
 
+    bike_feed = build_bike_feed_meta(bike_track, bike_times, bike_start_h)
     assistance = build_assistance_meta(run_track, run_times, run_start_h)
     assist_i, _ = nearest_at_km(run_track, ASSIST_KM)
     assist_clock = fmt_clock(run_start_h + run_times[assist_i])
@@ -867,6 +1034,7 @@ def build(out: Path = OUT_HTML) -> None:
         },
         "bike_pacing": bike_ref,
         "assistance": assistance,
+        "bike_feed": bike_feed,
         "docs": docs,
     }
 
@@ -891,6 +1059,9 @@ def build(out: Path = OUT_HTML) -> None:
     html = html.replace("__ASSIST_KM__", f"{ASSIST_KM:.0f}")
     html = html.replace("__ASSIST_CLOCK__", assist_clock)
     html = html.replace("__ASSIST_TIMELINE__", render_assist_timeline(assistance["markers"]))
+    html = html.replace("__BIKE_FEED_TIMELINE__", render_bike_feed_timeline(bike_feed["markers"]))
+    html = html.replace("__BIKE_MINIMAL_PLAN__", bike_feed["minimal_plan"])
+    html = html.replace("__BIKE_START_CLOCK__", fmt_clock(bike_start_h))
     html = html.replace("__DATA_JSON__", json.dumps(data, ensure_ascii=False))
 
     out.parent.mkdir(parents=True, exist_ok=True)
