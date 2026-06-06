@@ -16,7 +16,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ASCEND = ROOT / "AscendXtri"
-RUN_GPX = ASCEND / "Ascend xtri run v2.gpx"
+RUN_GPX = ASCEND / "Ascend_run_official_2026-06.gpx"
+ASSIST_KM = 25.0
 BIKE_GPX = ASCEND / "Ascend_xtri_bike.gpx"
 RUN_TERRAIN = ASCEND / "terrain_analysis.json"
 BIKE_TERRAIN = ASCEND / "bike_terrain_analysis.json"
@@ -33,6 +34,7 @@ BARRIER_CLOCK = 18 + 15 / 60
 NS = "{http://www.topografix.com/GPX/1/1}"
 
 DOCS = [
+    ("assistance.md", "Assistance support", "Km 0–25 véhicule · km 25+ crew à pied, parking La Mongie, horaires."),
     ("README.md", "Index parcours", "Vue d'ensemble vélo + CAP, scripts, chiffres clés."),
     ("run_course_analysis.md", "Analyse CAP", "4 actes, bosses, descentes genou, barrière km 33."),
     ("run_pace_model.md", "Modèle pacing run", "Vitesses race Icon / Alpsman / Bearman / Celtman."),
@@ -124,6 +126,90 @@ def enrich_track(pts: list[dict], span_m: float) -> list[dict]:
             }
         )
     return out
+
+
+def add_assist_phase(track: list[dict], km_split: float = ASSIST_KM) -> None:
+    for p in track:
+        p["assist"] = "vehicle" if p["km"] < km_split else "crew"
+
+
+def nearest_at_km(track: list[dict], km: float) -> tuple[int, dict]:
+    best_i, best_d = 0, 1e9
+    for i, p in enumerate(track):
+        d = abs(p["km"] - km)
+        if d < best_d:
+            best_d, best_i = d, i
+    return best_i, track[best_i]
+
+
+def build_assistance_meta(
+    run_track: list[dict], run_times: list[float], run_start_h: float
+) -> dict:
+    markers: list[dict] = []
+    for km, kind, title, popup in [
+        (0, "start", "Départ run · Payolle", "Assistance véhicule uniquement (pas de crew à pied)"),
+        (
+            ASSIST_KM,
+            "handoff",
+            "Km 25 · La Mongie",
+            "Parking assistance · laisser le véhicule · crew rejoint Tom à pied",
+        ),
+        (33, "barrier", "Km 33 · Barrière 18h15", "Col de Sencours / Pic du Midi — top finishers"),
+    ]:
+        i, p = nearest_at_km(run_track, km)
+        t = run_times[i]
+        markers.append(
+            {
+                "km": p["km"],
+                "lat": p["lat"],
+                "lon": p["lon"],
+                "ele": p["ele"],
+                "kind": kind,
+                "title": title,
+                "popup": popup,
+                "run_h": round(t, 2),
+                "clock": fmt_clock(run_start_h + t),
+                "assist": p.get("assist", "crew"),
+            }
+        )
+    p = run_track[-1]
+    t = run_times[-1]
+    markers.append(
+        {
+            "km": p["km"],
+            "lat": p["lat"],
+            "lon": p["lon"],
+            "ele": p["ele"],
+            "kind": "finish",
+            "title": "Arrivée · Col du Tourmalet",
+            "popup": "Fin de course · crew à pied obligatoire depuis km 25",
+            "run_h": round(t, 2),
+            "clock": fmt_clock(run_start_h + t),
+            "assist": "crew",
+        }
+    )
+    return {
+        "km_split": ASSIST_KM,
+        "vehicle_km": ASSIST_KM,
+        "crew_km": round(run_track[-1]["km"] - ASSIST_KM, 1),
+        "markers": markers,
+    }
+
+
+def render_assist_timeline(markers: list[dict]) -> str:
+    rows = []
+    for m in markers:
+        phase = "🚗 Véhicule" if m.get("assist") == "vehicle" else "🏃 Crew"
+        rows.append(
+            "<tr>"
+            f"<td>{m['title']}</td>"
+            f"<td>{m['km']:.1f}</td>"
+            f"<td>{phase}</td>"
+            f"<td>{m['clock']}</td>"
+            f"<td>{m['run_h']*60:.0f} min run</td>"
+            "</tr>"
+        )
+    return "\n".join(rows)
 
 
 def cum_hours(track: list[dict], speeds: dict[str, float]) -> list[float]:
@@ -340,13 +426,19 @@ tr:hover{background:var(--panel2)}
 .pos-grid .v{font-weight:600;margin-top:2px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.assist-banner{border-radius:8px;padding:14px 18px;margin-bottom:12px;border-left:4px solid}
+.assist-banner.vehicle{background:#132238;border-color:#38bdf8}
+.assist-banner.crew{background:#2a1f14;border-color:#f97316}
+.assist-banner h3{margin:0 0 6px;font-size:15px}
+.assist-banner p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.assist-pin{background:#0c1222;border:2px solid #fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px}
 @media(max-width:800px){.docs-layout{grid-template-columns:1fr;height:auto}.docs-sidebar{max-height:180px}}
 </style>
 </head>
 <body>
 <header>
   <h1>Ascend XTri — 25 juillet 2026</h1>
-  <div class="meta">Dashboard parcours · départ 03h00 · barrière km 33 @ 18h15 (top finishers)</div>
+  <div class="meta">Dashboard parcours · départ 03h00 · assistance véhicule km 0–25 · crew à pied km 25+ · barrière km 33 @ 18h15</div>
   <div class="stats">
     <div class="stat"><div class="v">__BIKE_KM__ km</div><div class="l">Vélo · +__BIKE_GAIN__ m</div></div>
     <div class="stat"><div class="v">__RUN_KM__ km</div><div class="l">CAP · +__RUN_GAIN__ m</div></div>
@@ -359,6 +451,7 @@ tr:hover{background:var(--panel2)}
 <nav class="tabs" id="main-tabs">
   <button class="active" data-tab="overview">Vue d'ensemble</button>
   <button data-tab="map">Carte & profil</button>
+  <button data-tab="support">Support</button>
   <button data-tab="bike">Vélo</button>
   <button data-tab="run">Course à pied</button>
   <button data-tab="docs">Documents</button>
@@ -370,10 +463,15 @@ tr:hover{background:var(--panel2)}
     <div class="kpi"><div class="l">Vélo @ 230 W</div><div class="v">~__BIKE_H__ h</div><div class="s">Réf. Bearman 2023 · T2 ~__T2_CLOCK__</div></div>
     <div class="kpi"><div class="l">Run modèle</div><div class="v">~__RUN_H__ h</div><div class="s">5 courses refs · roulage seul</div></div>
     <div class="kpi"><div class="l">Km 0–33 run</div><div class="v">~__KM33_MIN__ min</div><div class="s">Barrière Pic du Midi @ 18h15</div></div>
+    <div class="kpi"><div class="l">Rejoindre Tom</div><div class="v">km __ASSIST_KM__</div><div class="s">~__ASSIST_CLOCK__ · parking La Mongie</div></div>
   </div>
   <div class="two-col">
     <div class="card"><h3>🚴 Vélo — 4 actes</h3><p>Lourdes → cols pyrénéens (Balès, Peyragudes, Azet, Aspin…) → T2 Tourmalet. Bosses clés km 80–101, 116–143, 167–179. ~78 % bitume OSM.</p></div>
-    <div class="card"><h3>🏃 CAP — 4 actes</h3><p>Payolle → Courade → montée Pic du Midi (km 26–35, +1 400 m) → descente piste Tourmalet. 68 % sentier/piste · 38 % pente ≥ 6 %.</p></div>
+    <div class="card"><h3>🏃 CAP — 4 actes</h3><p>Payolle → Courade → montée Pic du Midi (km 26–35, +1 400 m) → descente piste Tourmalet. GPX officiel juin 2026 · 38 % pente ≥ 6 %.</p></div>
+  </div>
+  <div class="two-col" style="margin-top:12px">
+    <div class="assist-banner vehicle"><h3>🚗 Km 0 → 25 — assistance véhicule</h3><p>Support en bord de route uniquement — <strong>ne pas courir</strong> avec Tom. Eau, nutrition, vêtements en ponctuel.</p></div>
+    <div class="assist-banner crew"><h3>🏃 Km 25 → 42 — crew à pied obligatoire</h3><p>Parking <strong>La Mongie</strong> · laisser le véhicule · navette orga Tourmalet ↔ parking · sac assistance obligatoire.</p></div>
   </div>
   <h3 style="margin-top:20px;color:var(--accent2)">Barrière km 33 @ 18h15</h3>
   <div class="scrollable"><table>
@@ -389,11 +487,16 @@ tr:hover{background:var(--panel2)}
     <button data-leg="bike">Vélo 184 km</button>
   </div>
   <div id="map"></div>
-  <div class="legend">
+  <div class="legend" id="grade-legend">
     <span><i style="background:#4ade80"></i> plat / léger</span>
     <span><i style="background:#fbbf24"></i> montée modérée</span>
     <span><i style="background:#f87171"></i> montée raide ≥ 6 %</span>
     <span><i style="background:#38bdf8"></i> descente</span>
+  </div>
+  <div class="legend" id="assist-legend" style="display:none">
+    <span><i style="background:#38bdf8"></i> km 0–25 · véhicule</span>
+    <span><i style="background:#f97316"></i> km 25+ · crew à pied</span>
+    <span>📍 marqueurs : départ · La Mongie · barrière · arrivée</span>
   </div>
   <div class="profile-wrap">
     <canvas id="profile"></canvas>
@@ -403,6 +506,23 @@ tr:hover{background:var(--panel2)}
     <input type="range" id="pos-slider" min="0" max="1000" value="0"/>
     <div class="pos-grid" id="pos-info"></div>
   </div>
+</section>
+
+<section class="tab" id="tab-support">
+  <div class="assist-banner vehicle">
+    <h3>🚗 Phase 1 — km 0 à 25 (véhicule seulement)</h3>
+    <p>Assistance <strong>ponctuelle en voiture</strong> le long du parcours. Le support ne court pas avec l'athlète. Naviguer sur la carte (onglet Carte) pour voir la zone bleue.</p>
+  </div>
+  <div class="assist-banner crew">
+    <h3>🏃 Phase 2 — km 25 à 42 (crew à pied obligatoire)</h3>
+    <p><strong>Parking La Mongie</strong> au km 25 — laisser le véhicule, prendre le sac, rejoindre Tom. Navette orga Tourmalet ↔ parking toute la journée. Zone orange sur la carte.</p>
+  </div>
+  <h3 style="color:var(--accent2)">Jalons horaires estimés (modèle Tom)</h3>
+  <div class="scrollable"><table>
+    <thead><tr><th>Point</th><th>Km</th><th>Mode</th><th>Horloge ~</th><th>Temps run</th></tr></thead>
+    <tbody>__ASSIST_TIMELINE__</tbody>
+  </table></div>
+  <p style="color:var(--muted);font-size:13px;margin-top:12px">Hypothèse T2 ~__T2_CLOCK__ · ajuster le jour J selon heure réelle au rack. Utiliser le <strong>slider</strong> sur l'onglet Carte pour voir position + mode assistance à chaque km.</p>
 </section>
 
 <section class="tab" id="tab-bike">
@@ -459,6 +579,8 @@ const GRADE_COLORS = {
   "+3 to +6 %": "#fb923c",
   ">= +6 %": "#f87171"
 };
+const ASSIST_COLORS = { vehicle: "#38bdf8", crew: "#f97316" };
+const MARKER_ICON = { start: "🏁", handoff: "🅿️", barrier: "⏱️", finish: "🏔️" };
 
 let leg = "run";
 let map, layers = [];
@@ -484,6 +606,7 @@ function initTabs() {
       btn.classList.add("active");
       leg = btn.dataset.leg;
       document.getElementById("pos-slider").value = 0;
+      document.getElementById("assist-legend").style.display = leg === "run" ? "flex" : "none";
       renderMap();
       drawProfile();
       updatePos(0);
@@ -493,6 +616,32 @@ function initTabs() {
 
 function track() { return leg === "run" ? DATA.run.track : DATA.bike.track; }
 function times() { return leg === "run" ? DATA.run.times : DATA.bike.times; }
+
+function renderAssistZones(pts) {
+  let i = 0;
+  while (i < pts.length) {
+    const phase = pts[i].assist;
+    if (!phase) { i++; continue; }
+    let j = i + 1;
+    while (j < pts.length && pts[j].assist === phase) j++;
+    const seg = pts.slice(i, Math.min(j + 1, pts.length));
+    if (seg.length >= 2) {
+      layers.push(L.polyline(seg.map(p => [p.lat, p.lon]), {
+        color: ASSIST_COLORS[phase], weight: 12, opacity: 0.28, lineCap: "round"
+      }).addTo(map));
+    }
+    i = j;
+  }
+  (DATA.assistance?.markers || []).forEach(m => {
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="assist-pin">${MARKER_ICON[m.kind] || "📍"}</div>`,
+      iconSize: [28, 28], iconAnchor: [14, 14]
+    });
+    const popup = `<strong>${m.title}</strong><br>km ${m.km.toFixed(1)} · ${Math.round(m.ele)} m<br>${m.popup}<br><em>~${m.clock}</em>`;
+    layers.push(L.marker([m.lat, m.lon], { icon }).bindPopup(popup).addTo(map));
+  });
+}
 
 function renderMap() {
   const pts = track();
@@ -505,6 +654,7 @@ function renderMap() {
   layers.forEach(l => map.removeLayer(l));
   layers = [];
   if (marker) { map.removeLayer(marker); marker = null; }
+  if (leg === "run") renderAssistZones(pts);
   let chunk = [pts[0]];
   for (let i = 1; i < pts.length; i++) {
     if (pts[i].glbl !== pts[i-1].glbl) {
@@ -551,13 +701,19 @@ function drawProfile() {
     ctx.lineTo(x(pts[i+1].km), y(pts[i+1].ele));
     ctx.stroke();
   }
-  const km33 = leg === "run" ? 33 : null;
-  if (km33 && km33 <= maxKm) {
-    ctx.strokeStyle = "#6ee7b7"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
-    ctx.beginPath(); ctx.moveTo(x(km33), pad.t); ctx.lineTo(x(km33), h - pad.b); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = "#6ee7b7"; ctx.font = "11px system-ui";
-    ctx.fillText("km 33 barrière", x(km33) + 4, pad.t + 14);
+  if (leg === "run") {
+    const vlines = [
+      [DATA.assistance?.km_split || 25, "#38bdf8", "km 25 crew"],
+      [33, "#6ee7b7", "km 33 barrière"],
+    ];
+    vlines.forEach(([km, col, lbl]) => {
+      if (km > maxKm) return;
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(x(km), pad.t); ctx.lineTo(x(km), h - pad.b); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = col; ctx.font = "11px system-ui";
+      ctx.fillText(lbl, x(km) + 4, pad.t + 14);
+    });
   }
   canvas._pts = pts; canvas._x = x; canvas._y = y; canvas._pad = pad;
 }
@@ -572,8 +728,16 @@ function updatePos(idx) {
     : DATA.meta.swim_t1_h + t;
   const clock = DATA.meta.race_start_h + raceH;
   const hh = Math.floor(clock) % 24, mm = Math.round((clock % 1) * 60);
+  let assistHtml = "";
+  if (leg === "run" && p.assist) {
+    const isVeh = p.assist === "vehicle";
+    const lbl = isVeh ? "🚗 Véhicule" : "🏃 Crew à pied";
+    const col = ASSIST_COLORS[p.assist];
+    assistHtml = `<div><div class="l">Assistance</div><div class="v" style="color:${col}">${lbl}</div></div>`;
+  }
   document.getElementById("pos-info").innerHTML =
     `<div><div class="l">Km</div><div class="v">${p.km.toFixed(1)}</div></div>` +
+    assistHtml +
     `<div><div class="l">Altitude</div><div class="v">${Math.round(p.ele)} m</div></div>` +
     `<div><div class="l">Pente</div><div class="v">${p.grade.toFixed(1)} %</div></div>` +
     `<div><div class="l">Temps ${leg}</div><div class="v">${Math.floor(t)}h${String(Math.round((t%1)*60)).padStart(2,"0")}</div></div>` +
@@ -643,6 +807,7 @@ def build(out: Path = OUT_HTML) -> None:
     run_full = parse_track(RUN_GPX)
     bike_full = parse_track(BIKE_GPX)
     run_track = enrich_track(downsample(run_full, 1500), 100)
+    add_assist_phase(run_track)
     bike_track = enrich_track(downsample(bike_full, 2500), 300)
 
     run_terrain = trim_terrain(json.loads(RUN_TERRAIN.read_text()))
@@ -663,8 +828,13 @@ def build(out: Path = OUT_HTML) -> None:
     km33_h = pace["ascend_km33_estimate"]["total_h"]
 
     swim_t1 = SWIM_H + T1_H
+    run_start_h = swim_t1 + bike_h + T2_H
     t2_clock_h = swim_t1 + bike_h
-    finish_h = swim_t1 + bike_h + T2_H + run_h
+    finish_h = run_start_h + run_h
+
+    assistance = build_assistance_meta(run_track, run_times, run_start_h)
+    assist_i, _ = nearest_at_km(run_track, ASSIST_KM)
+    assist_clock = fmt_clock(run_start_h + run_times[assist_i])
 
     barrier = barrier_rows(km33_h)
     docs, docs_avail = load_docs()
@@ -696,6 +866,7 @@ def build(out: Path = OUT_HTML) -> None:
             "km33": pace["ascend_km33_estimate"],
         },
         "bike_pacing": bike_ref,
+        "assistance": assistance,
         "docs": docs,
     }
 
@@ -717,6 +888,9 @@ def build(out: Path = OUT_HTML) -> None:
     html = html.replace("__RUNS_ROWS__", render_runs_table(pace["runs"]))
     html = html.replace("__RUN_CLIMBS__", render_climb_rows(run_terrain["climbs"], 15))
     html = html.replace("__DOCS_SIDEBAR__", render_docs_sidebar(docs_avail))
+    html = html.replace("__ASSIST_KM__", f"{ASSIST_KM:.0f}")
+    html = html.replace("__ASSIST_CLOCK__", assist_clock)
+    html = html.replace("__ASSIST_TIMELINE__", render_assist_timeline(assistance["markers"]))
     html = html.replace("__DATA_JSON__", json.dumps(data, ensure_ascii=False))
 
     out.parent.mkdir(parents=True, exist_ok=True)

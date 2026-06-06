@@ -87,30 +87,30 @@ Sources : Icon / Alpsman / Bearman / Celtman — vitesses **en mouvement**
 
 ## Application Ascend run (GPX v2)
 
-**Temps roulage estimé (42 km) : 6.27 h** (376 min)
+**Temps roulage estimé (42 km) : 6.45 h** (387 min)
 
 | Pente | Distance | km/h modèle | Temps |
 |---|---:|---:|---:|
-| <= -6 % | 11.6 km | 8.9 | 78 min |
-| -6 to -3 % | 4.2 km | 8.8 | 28 min |
-| -3 to -1 % | 2.0 km | 9.2 | 13 min |
-| -1 to +1 % | 1.6 km | 9.4 | 10 min |
+| <= -6 % | 12.3 km | 8.3 | 89 min |
+| -6 to -3 % | 4.0 km | 8.6 | 28 min |
+| -3 to -1 % | 2.5 km | 9.0 | 17 min |
+| -1 to +1 % | 2.3 km | 9.3 | 15 min |
 | +1 to +3 % | 2.1 km | 8.4 | 15 min |
-| +3 to +6 % | 4.4 km | 7.2 | 37 min |
-| >= +6 % | 15.9 km | 4.9 | 195 min |
+| +3 to +6 % | 2.7 km | 7.1 | 23 min |
+| >= +6 % | 15.8 km | 4.7 | 201 min |
 
 ### Barrière km 33 @ 18h15
 
-**Run km 0–33 estimé : 299 min** (4.99 h)
+**Run km 0–33 estimé : 311 min** (5.19 h)
 
 | Scénario T2 | Passage km 33 | Marge / 18h15 |
 |---|---|---|
-| 12h17 (table xtri) | 17h26 | ✅ +49 min |
-| 12h25 (vélo @ 230 W) | 17h34 | ✅ +41 min |
-| 12h45 (+ stops vélo) | 17h54 | ✅ +21 min |
-| 13h00 (vélo lent) | 18h09 | ✅ +6 min |
+| 12h17 (table xtri) | 17h38 | ✅ +37 min |
+| 12h25 (vélo @ 230 W) | 17h46 | ✅ +29 min |
+| 12h45 (+ stops vélo) | 18h06 | ✅ +9 min |
+| 13h00 (vélo lent) | 18h21 | ❌ -6 min |
 
-Comparaison table xtri médiane : km 0–33 ≈ **5h05** · modèle Tom ≈ **299 min**.
+Comparaison table xtri médiane : km 0–33 ≈ **5h05** · modèle Tom ≈ **311 min**.
 
 ## Règles d'usage
 

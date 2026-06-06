@@ -19,13 +19,25 @@ Matériel d'analyse **vélo** (~186 km / 5 000 m D+) et **CAP** (42 km / 2 600 m
 
 | Fichier | Rôle |
 |---|---|
-| `Ascend xtri run v2.gpx` | Trace Strava ([route](https://www.strava.com/routes/3497605010760440364)) |
-| `terrain_analysis.md` / `.json` | Terrain auto (mode `run`) |
+| `Ascend_run_official_2026-06.gpx` | **GPX officiel CAP** (site juin 2026, modif assistance km 25) |
+| `Ascend xtri run v2.gpx` | Ancienne trace Strava ([route](https://www.strava.com/routes/3497605010760440364)) |
+| `terrain_analysis.md` / `.json` | Terrain auto v2 Strava (mode `run`) |
+| `terrain_analysis_official.md` / `.json` | Terrain auto GPX officiel |
 | `run_course_analysis.md` | Synthèse coaching CAP |
 | `run_pace_model.md` / `.json` | **Modèle pacing** (Icon / Alpsman / Bearman / Celtman) |
 | `.cache/osm_surface.json` | Cache Overpass run (gitignored) |
 
 Contexte stratégique global : `xtri/context-and-strategy.md` §7 · Go/no-go : `xtri/ascend-go-nogo.md`
+
+### WhatsApp (orga)
+
+| Fichier | Rôle |
+|---|---|
+| `whatsapp/info/ascend2026_info_chat.txt` | Groupe **Ascend2026** — infos officielles |
+| `whatsapp/athletes/ascend_athletes_chat.txt` | Groupe **ASCEND Athletes** |
+| `whatsapp/athletes/parcours_support_run.gpx` | GPX run partagé par les athlètes |
+
+Voir `whatsapp/README.md` pour ré-exporter.
 
 ## Chiffres clés (GPX v2, mode `run`)
 

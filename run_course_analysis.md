@@ -1,10 +1,11 @@
-# Ascend XTri — Analyse du parcours CAP (GPX v2)
+# Ascend XTri — Analyse du parcours CAP (GPX officiel juin 2026)
 
-> Index du dossier : `README.md` · Contexte stratégique : `xtri/context-and-strategy.md` §7
+> Index du dossier : `README.md` · Assistance support : `assistance.md` · Contexte : `xtri/context-and-strategy.md` §7
 
-Source : `Ascend xtri run v2.gpx` (Strava route)  
+Source : `Ascend_run_official_2026-06.gpx` (parcours officiel CAP, modif juin 2026)  
 Analyse auto : `terrain_analysis.md` / `terrain_analysis.json` — mode **run**  
-Distance GPX : **41,8 km** · D+ lissé **+2 585 m** · D- **-1 568 m** · Alt **784–2 847 m**  
+Distance GPX : **41,7 km** · D+ lissé **+2 975 m** · D- **-1 568 m** · Alt **784–2 847 m**  
+Orga annonce : **41,49 km** · D+ **2 400 m** (GPX GPS plus haut)  
 Généré : 2026-06-05
 
 > Les pentes et surfaces viennent du GPX + OpenStreetMap. Le découpage officiel
@@ -17,8 +18,8 @@ Généré : 2026-06-05
 
 | Indicateur | Valeur | Commentaire |
 |---|---:|---|
-| Distance | 41,8 km | Proche des 42 km officiels |
-| D+ GPX | 2 585 m | Proche des 2 600 m annoncés |
+| Distance | 41,7 km | Proche des 42 km officiels |
+| D+ GPX | 2 975 m | Orga 2 400 m — GPS plus détaillé en montagne |
 | Pente ≥ 6 % | **38 %** du parcours | Course très montagneuse |
 | Pente ≤ -6 % | **28 %** | Descentes techniques à gérer (genou) |
 | Sentier + piste (OSM) | **~68 %** | path 34 % + track 33 % |
@@ -131,6 +132,19 @@ La descente **km 25,3–26,2** (-18 %) et la **finale km 35+** sont les deux sec
 
 ---
 
+## Assistance course à pied (modif orga juin 2026)
+
+| Km | Règle | Support |
+|---|---|---|
+| **0 → 25** | Assistance **véhicule** uniquement | Bord de route — **ne pas courir** avec l'athlète |
+| **25** | Début zone crew | Parking **La Mongie** · laisser le véhicule · navette Tourmalet ↔ parking |
+| **25 → 42** | Support **obligatoire à pied** | Sac assistance · bâtons autorisés |
+| **33** | Barrière **18h15** | Pic du Midi (top finishers) |
+
+Voir `assistance.md` et la carte interactive [tomverin.github.io/ascend-xtri](https://tomverin.github.io/ascend-xtri/) (onglet **Support**).
+
+---
+
 ## Implications entraînement / course
 
 1. **Pas un marathon de route** : 68 % sentier/piste, 38 % du parcours en pente ≥ 6 %.
@@ -157,7 +171,7 @@ Hypothèse : T2 = 10 min après rack vélo. Le goulot reste le **vélo** si T2 >
 
 ```bash
 .venv/bin/python scripts/race/analyze_gpx_osm_surface.py --mode run \
-  "AscendXtri/Ascend xtri run v2.gpx" \
+  "AscendXtri/Ascend_run_official_2026-06.gpx" \
   --cache AscendXtri/.cache/osm_surface.json \
   --out AscendXtri/terrain_analysis.md \
   --json-out AscendXtri/terrain_analysis.json
